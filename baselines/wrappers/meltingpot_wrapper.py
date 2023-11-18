@@ -17,6 +17,7 @@ class MeltingPotEnv(multi_agent_env.MultiAgentEnv):
     Args:
       env: dmlab2d environment to wrap. Will be closed when this wrapper closes.
     """
+    self.planted_colors = {}
     self._env = env
     self._num_players = len(self._env.observation_spec())
     self._ordered_agent_ids = [
@@ -53,10 +54,35 @@ class MeltingPotEnv(multi_agent_env.MultiAgentEnv):
     info = {}
 
     observations = utils.timestep_to_observations(timestep)
+    for action in actions:
+      if action in [8, 9, 10]:
+        freq = self.planted_colors.get(action, 0)
+        self.planted_colors[action] = freq + 1
+    
+    max_color = None
+    if self.planted_colors:
+      color = max(self.planted_colors.values())
+      for c, f in self.planted_colors.items():
+        if f == color:
+          max_color = c
+          break
+
+    for idx, action in enumerate(actions):
+      cur_reward = rewards[f"player_{idx}"]
+
+      if action == max_color:
+        rewards[f"player_{idx}"] = cur_reward + 0.5
+      elif action in [8, 9, 10]:
+        rewards[f"player_{idx}"] = cur_reward + 0.25
+      elif action in [7]:
+        rewards[f"player_{idx}"] = cur_reward - 0.5
+      elif action in [0]:
+        rewards[f"player_{idx}"] = cur_reward - 0.03
     return observations, rewards, done, done, info
 
   def close(self):
     """See base class."""
+    print(self.planted_colors)
 
     self._env.close()
 
